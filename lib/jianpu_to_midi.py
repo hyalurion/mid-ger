@@ -177,10 +177,15 @@ class JianpuParser:
 
 
 class MidiGenerator:
-    def __init__(self, tempo=120, time_signature=(4, 4), default_duration=480, key='C'):
+    def __init__(self, tempo=120, time_signature=(4, 4), key='C'):
         self.tempo = tempo
         self.time_signature = time_signature
-        self.default_duration = default_duration
+        self.ticks_per_beat = 480
+        # 根据拍号分母计算基本音符时值
+        # 4/4拍: 分母4 → 四分音符 = 480 ticks
+        # 6/8拍: 分母8 → 八分音符 = 240 ticks
+        self.beat_unit = self.ticks_per_beat * 4 // time_signature[1]
+        self.default_duration = self.beat_unit
         self.channel = 0
         self.velocity = 64
         self.key = key
@@ -205,9 +210,9 @@ class MidiGenerator:
             elif token_type == 'section':
                 continue
             elif token_type == 'bar':
-                bar_duration = self.time_signature[0] * self.default_duration
-                while pending_delta % bar_duration != 0:
-                    pending_delta += 1
+                bar_duration = self.time_signature[0] * self.beat_unit
+                if pending_delta % bar_duration != 0:
+                    pending_delta = ((pending_delta // bar_duration) + 1) * bar_duration
                 continue
             
             if token_type == 'note':
@@ -277,12 +282,12 @@ def batch_convert(source_dir, output_dir):
         
         try:
             token_count, has_repeat, key, tempo, time_sig = jianpu_to_midi(txt_path, mid_path)
-            print(f"✓ {file_name}")
-            print(f"  → {base_name}.mid")
+            print(f"[OK] {file_name}")
+            print(f"  -> {base_name}.mid")
             print(f"    Key: {key}, Tempo: {tempo} BPM, Time: {time_sig[0]}/{time_sig[1]}")
             print(f"    Tokens: {token_count}, Notes: {token_count // 2}\n")
         except Exception as e:
-            print(f"✗ {file_name}")
+            print(f"[FAIL] {file_name}")
             print(f"    Error: {str(e)}\n")
 
 
