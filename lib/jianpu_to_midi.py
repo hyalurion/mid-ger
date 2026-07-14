@@ -181,11 +181,13 @@ class MidiGenerator:
         self.tempo = tempo
         self.time_signature = time_signature
         self.ticks_per_beat = 480
-        # 根据拍号分母计算基本音符时值
-        # 4/4拍: 分母4 → 四分音符 = 480 ticks
-        # 6/8拍: 分母8 → 八分音符 = 240 ticks
-        self.beat_unit = self.ticks_per_beat * 4 // time_signature[1]
-        self.default_duration = self.beat_unit
+        # 基本音符单位统一为八分音符 = 240 ticks
+        # 拍号只影响小节线对齐，不影响单个音符时值
+        self.default_duration = 240
+        # 每小节总ticks = 分子 * (8/分母) * 240
+        # 4/4拍: 4 * 2 * 240 = 1920 ticks (8个八分音符)
+        # 6/8拍: 6 * 1 * 240 = 1440 ticks (6个八分音符)
+        self.bar_duration = time_signature[0] * 240 * 8 // time_signature[1]
         self.channel = 0
         self.velocity = 64
         self.key = key
@@ -210,9 +212,8 @@ class MidiGenerator:
             elif token_type == 'section':
                 continue
             elif token_type == 'bar':
-                bar_duration = self.time_signature[0] * self.beat_unit
-                if pending_delta % bar_duration != 0:
-                    pending_delta = ((pending_delta // bar_duration) + 1) * bar_duration
+                if pending_delta % self.bar_duration != 0:
+                    pending_delta = ((pending_delta // self.bar_duration) + 1) * self.bar_duration
                 continue
             
             if token_type == 'note':
